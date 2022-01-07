@@ -1,4 +1,6 @@
 from flask import Flask, render_template, url_for, jsonify, request, flash, redirect
+# from flask_debugtoolbar import DebugToolbarExtension
+import translate
 import folium
 from RegionForm import RegionForm
 
@@ -36,7 +38,7 @@ def get_all_states():
     for row in rows:
         # pdb.set_trace()
         state = row[0]
-        result.append(state)
+        result.append((state,state))
     return result
 
 def get_all_counties(state=None):
@@ -53,6 +55,9 @@ def get_all_counties(state=None):
 
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
+app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
+# app.debug = True
+# toolbar = DebugToolbarExtension(app)
 
 @app.route('/')
 def index():
@@ -65,18 +70,22 @@ def map():
     folium_map.save('templates/map.html')
     return render_template('show_map.html')
 
-@app.route('/pick_region')
+@app.route('/pick_region', methods=['GET', 'POST'])
 def pick_region():
-    form = RegionForm(form_name='PickCounty')
+    form = RegionForm()
+    form.form_name = 'PickCounty'
     # form.state.choices = [(row.ID, row.Name) for row in State.query.all()]
     # form.county.choices = [(row.ID, row.Name) for row in County.query.all()]
     form.state.choices = get_all_states()
     form.county.choices = get_all_counties()
     if request.method == 'GET':
         return render_template('pick_region.html', form=form)
-    if form.validate_on_submit() and request.form['form_name'] == 'PickCounty':
+    # Todo: Why doesn't request.form['form_name'] exist?
+    # if form.validate_on_submit() and request.form['form_name'] == 'PickCounty':
+    if form.validate_on_submit():
         # code to process form
         flash('state: %s, county: %s' % (form.state.data, form.county.data))
+        return redirect(url_for('county_report'))
     return redirect(url_for('pick_region'))
 
 @app.route('/_get_counties/')
@@ -84,3 +93,15 @@ def _get_counties():
     state = request.args.get('state', '01', type=str)
     # counties = [(row.rowid, row.county) for row in get_all_counties(state)]
     return jsonify(get_all_counties(state))
+
+@app.route('/county_report')
+def county_report():
+    return render_template('county_report.html')
+
+@app.route('/translate-text', methods=['POST'])
+def translate_text():
+    data = request.get_json()
+    text_input = data['text']
+    translation_output = data['to']
+    response = translate.get_translation(text_input, translation_output)
+    return jsonify(response)
