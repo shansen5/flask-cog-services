@@ -2,7 +2,7 @@ from flask import Flask, render_template, url_for, jsonify, request, flash, redi
 # from flask_debugtoolbar import DebugToolbarExtension
 import translate
 import folium
-from RegionForm import RegionForm
+from CountyForm import CountyForm
 
 from sqlalchemy import create_engine, text, Column, Integer, String, select
 from sqlalchemy.orm import Session, declarative_base
@@ -70,23 +70,23 @@ def map():
     folium_map.save('templates/map.html')
     return render_template('show_map.html')
 
-@app.route('/pick_region', methods=['GET', 'POST'])
-def pick_region():
-    form = RegionForm()
+@app.route('/pick_county', methods=['GET', 'POST'])
+def pick_county():
+    form = CountyForm()
     form.form_name = 'PickCounty'
     # form.state.choices = [(row.ID, row.Name) for row in State.query.all()]
     # form.county.choices = [(row.ID, row.Name) for row in County.query.all()]
     form.state.choices = get_all_states()
     form.county.choices = get_all_counties()
     if request.method == 'GET':
-        return render_template('pick_region.html', form=form)
+        return render_template('pick_county.html', form=form)
     # Todo: Why doesn't request.form['form_name'] exist?
     # if form.validate_on_submit() and request.form['form_name'] == 'PickCounty':
     if form.validate_on_submit():
         # code to process form
         flash('state: %s, county: %s' % (form.state.data, form.county.data))
-        return redirect(url_for('county_report'))
-    return redirect(url_for('pick_region'))
+        return redirect(url_for('county_report', state=request.form['state'], county=request.form['county']))
+    return redirect(url_for('pick_county'))
 
 @app.route('/_get_counties/')
 def _get_counties():
@@ -96,7 +96,9 @@ def _get_counties():
 
 @app.route('/county_report')
 def county_report():
-    return render_template('county_report.html')
+    state = request.args.get('state')
+    county = request.args.get('county')
+    return render_template('county_report.html', state=state, county=county)
 
 @app.route('/translate-text', methods=['POST'])
 def translate_text():
