@@ -3,6 +3,8 @@ from flask import Flask, render_template, url_for, jsonify, request, flash, redi
 import translate
 import folium
 from CountyForm import CountyForm
+from RegionForm import RegionForm
+from CDForm import CDForm
 
 from sqlalchemy import create_engine, text, Column, Integer, String, select
 from sqlalchemy.orm import Session, declarative_base
@@ -28,12 +30,24 @@ class County(Base):
     def __repr__(self):
         return f"County(rowid={self.rowid!r}, county={self.county!r}, state={self.state!r})"
     
-engine = create_engine("sqlite:///geographies.db?check_same_thread=false", echo=True, future=True)
+class CD(Base):
+    __tablename__ = 'real_cds'
 
-session = Session(engine)
+    rowid = Column(Integer, primary_key=True)
+    cd = Column(String(40))
+    state = Column(String(4))
+
+    def __repr__(self):
+        return f"CD(rowid={self.rowid!r}, cd={self.cd!r}, state={self.state!r})"
+    
+engine_region = create_engine("sqlite:///region.db?check_same_thread=false", echo=True, future=True)
+engine_geo = create_engine("sqlite:///geographies.db?check_same_thread=false", echo=True, future=True)
+
+session_region = Session(engine_region)
+session_geo = Session(engine_geo)
 
 def get_all_states():
-    rows = session.execute(select(State.state)).all()
+    rows = session_geo.execute(select(State.state)).all()
     result = []
     for row in rows:
         # pdb.set_trace()
@@ -43,14 +57,26 @@ def get_all_states():
 
 def get_all_counties(state=None):
     if state:
-        rows = session.execute(select(County).where(County.state==state))
+        rows = session_geo.execute(select(County).where(County.state==state))
     else:
-        rows = session.execute(select(County)).all()
+        rows = session_geo.execute(select(County)).all()
     result = []
     for row in rows:
         # pdb.set_trace()
         county = row[0]
         result.append((county.rowid, county.county))
+    return result
+
+def get_all_CDs(state=None):
+    if state:
+        rows = session_region.execute(select(CD).where(CD.state==state))
+    else:
+        rows = session_region.execute(select(CD)).all()
+    result = []
+    for row in rows:
+        # pdb.set_trace()
+        cd = row[0]
+        result.append((cd.rowid, cd.cd))
     return result
 
 app = Flask(__name__)
@@ -70,6 +96,27 @@ def map():
     folium_map.save('templates/map.html')
     return render_template('show_map.html')
 
+@app.route('/region_type', methods=['GET', 'POST'])
+def region_type():
+    form = RegionForm()
+    form.form_name = 'PickRegion'
+    form.region_type.choices = ['State', 'Congressional District', 'Zip Code', 
+         'Watershed', 'County']
+    # form.region_type.choices = [(1,'State'), (2,'Congressional Disctict'), (3,'Zip Code'), 
+    #     (4,'Watershed'), (5,'County')]
+    if request.method == 'GET':
+        return render_template('pick_region.html', form=form)
+    # Todo: Why doesn't request.form['form_name'] exist?
+    # if form.validate_on_submit() and request.form['form_name'] == 'PickRegion':
+    if form.validate_on_submit():
+        # code to process form
+        flash('region: %s' % (form.region_type.data))
+        if request.form['region_type'] == 'County':
+            return redirect(url_for('pick_county'))
+        if request.form['region_type'] == 'Congressional District':
+            return redirect(url_for('pick_CD'))
+    return redirect(url_for('region_type'))
+
 @app.route('/pick_county', methods=['GET', 'POST'])
 def pick_county():
     form = CountyForm()
@@ -81,18 +128,50 @@ def pick_county():
     if request.method == 'GET':
         return render_template('pick_county.html', form=form)
     # Todo: Why doesn't request.form['form_name'] exist?
-    # if form.validate_on_submit() and request.form['form_name'] == 'PickCounty':
+    # if form.validate_on_submit() and request.form['form_name'] == 'CountyForm':
     if form.validate_on_submit():
+        form.populate_obj(request.form)
         # code to process form
         flash('state: %s, county: %s' % (form.state.data, form.county.data))
         return redirect(url_for('county_report', state=request.form['state'], county=request.form['county']))
     return redirect(url_for('pick_county'))
+
+@app.route('/pick_CD', methods=['GET', 'POST'])
+def pick_CD():
+    form = CDForm()
+    form.form_name = 'PickCD'
+    # form.state.choices = [(row.ID, row.Name) for row in State.query.all()]
+    # form.county.choices = [(row.ID, row.Name) for row in County.query.all()]
+    form.state.choices = get_all_states()
+    form.cd.choices = get_all_CDs()
+    if request.method == 'GET':
+        return render_template('pick_CD.html', form=form)
+    # Todo: Why doesn't request.form['form_name'] exist?
+    # if form.validate_on_submit() and request.form['form_name'] == 'CountyForm':
+    if form.validate_on_submit():
+        form.populate_obj(request.form)
+        # code to process form
+        # flash('state: %s, county: %s' % (form.state.data, form.county.data))
+        return redirect(url_for('cd_report', state=request.form['state'], cd=request.form['cd']))
+    return redirect(url_for('pick_cd'))
 
 @app.route('/_get_counties/')
 def _get_counties():
     state = request.args.get('state', '01', type=str)
     # counties = [(row.rowid, row.county) for row in get_all_counties(state)]
     return jsonify(get_all_counties(state))
+
+@app.route('/_get_CDs/')
+def _get_CDs():
+    state = request.args.get('state', '01', type=str)
+    # counties = [(row.rowid, row.county) for row in get_all_counties(state)]
+    return jsonify(get_all_CDs(state))
+
+@app.route('/cd_report')
+def cd_report():
+    state = request.args.get('state')
+    cd = request.args.get('cd')
+    return render_template('cd_report.html', state=state, cd=cd)
 
 @app.route('/county_report')
 def county_report():

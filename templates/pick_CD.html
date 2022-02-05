@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+{% block title %} Congressional District Selection {% endblock %}
+{% block head %} {{ super() }} {% endblock %}
+{% block body %}
+<h1>Pick a District</h1>
+<form action="" method="post" novalidate>
+{{ form.form_name }}
+<p>
+{{ form.state.label }}<br>
+{{ form.state }}
+</p>
+<p>
+{{ form.cd.label }}<br>
+{{ form.cd }}
+</p>
+<p>
+    {{ form.submit }}
+</p>
+</form>
+
+{% block javascript %}
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+<script charset="utf-8" type="text/javascript">
+
+    $(function() {
+    
+        // jQuery selection for the 2 select boxes
+        var dropdown = {
+            state: $('#select_state'),
+            CD: $('#select_CD')
+        };
+    
+        // call to update on load
+        updateCDs();
+    
+        // function to call XHR and update county dropdown
+        function updateCDs() {
+            var send = {
+                state: dropdown.state.val()
+            };
+            dropdown.CD.attr('disabled', 'disabled');
+            dropdown.CD.empty();
+            $.getJSON("{{ url_for('_get_CDs') }}", send, function(data) {
+                data.forEach(function(item) {
+                    // item[0] is rowid of the CD, item[1] is the number
+                    dropdown.CD.append(
+                        $('<option>', {
+                            value: item[1],
+                            text: item[1]
+                        })
+                    );
+                });
+                dropdown.CD.removeAttr('disabled');
+            });
+        }
+    
+        // event listener to state dropdown change
+        dropdown.state.on('change', function() {
+            updateCDs();
+        });
+    
+    });
+    
+    </script>
+{% endblock %}
+{% endblock %}

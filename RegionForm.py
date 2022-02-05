@@ -1,11 +1,10 @@
-from wtforms import Form, HiddenField, SubmitField, SelectField
+from wtforms import Form, HiddenField, SubmitField, SelectField, validators
 
-class CountyForm( Form ):
-    form_name = HiddenField('County Selection')
+class RegionForm( Form ):
+    form_name = HiddenField('Region Selection')
 
-    state = SelectField('State:', id='select_state')
-    county = SelectField('County:', id='select_county')
-    submit = SubmitField('Select County!')
+    region_type = SelectField('Type of region:', id='select_state', validators=[validators.DataRequired()])
+    submit = SubmitField('Select Type!')
 
     def validate_on_submit( self ):
         return True
